@@ -1,3 +1,5 @@
-Flask
-pyTelegramBotAPI
+python-telegram-bot==20.7
 requests
+pandas
+openai
+python-dotenv
