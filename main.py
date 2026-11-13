@@ -1,7 +1,7 @@
 import os
 import yfinance as yf
 import pandas as pd
-from telegram.ext import ApplicationBuilder, CommandHandler
+from telegram.ext import Updater, CommandHandler
 
 SYMBOL = "GC=F"
 
@@ -42,9 +42,9 @@ def agent_trend(df_h1):
     ema200 = calc_ema(df_h1['Close'], 200).iloc[-1]
     price = df_h1['Close'].iloc[-1]
     if price > ema50 > ema200:
-        return {"vote":"BUY", "reason":f"Тренд UP (Price {price:.1f} > EMA50 {ema50:.1f})"}
+        return {"vote":"BUY", "reason":f"Тренд UP ({price:.1f} > EMA50 {ema50:.1f})"}
     elif price < ema50 < ema200:
-        return {"vote":"SELL", "reason":f"Тренд DOWN (Price {price:.1f} < EMA50 {ema50:.1f})"}
+        return {"vote":"SELL", "reason":f"Тренд DOWN ({price:.1f} < EMA50 {ema50:.1f})"}
     else:
         return {"vote":"NEUTRAL", "reason":"Боковик"}
 
@@ -79,11 +79,11 @@ def agent_boss(votes):
         return "SELL"
     return "WAIT"
 
-async def start(update, context):
-    await update.message.reply_text("🐻 Night Bear v2 с 6 агентами онлайн!\nЖми /signal для анализа")
+def start(update, context):
+    update.message.reply_text("🐻 Night Bear v2 с 6 агентами онлайн!\nЖми /signal")
 
-async def signal(update, context):
-    await update.message.reply_text("🐻 Анализирую... H1 + M15, 5 сек...")
+def signal(update, context):
+    update.message.reply_text("🐻 Анализирую... H1 + M15, 5 сек...")
     try:
         df_h1 = get_data("60m", "5d")
         df_m15 = get_data("15m", "5d")
@@ -97,7 +97,7 @@ async def signal(update, context):
         votes = [z['vote'], t['vote'], r['vote'], pa['vote']]
         decision = agent_boss(votes)
         if decision == "WAIT":
-            await update.message.reply_text(f"⏸️ Консенсуса нет\nЗона: {z['zone']}\nТренд: {t['reason']}\nRSI: {r['reason']}\nPA: {pa['reason']}\nЖди подтверждения M15")
+            update.message.reply_text(f"⏸️ Консенсуса нет\nЗона: {z['zone']}\nТренд: {t['reason']}\nRSI: {r['reason']}\nPA: {pa['reason']}\nЖди подтверждения M15")
             return
         if decision == "BUY":
             entry = price
@@ -112,12 +112,13 @@ async def signal(update, context):
             tp2 = entry - atr*3
             tp3 = entry - atr*4.5
         text = f"🐻 Night Bear - 6 Агентов Консенсус: {decision}\n\n📍 ЗОНА: {z['zone']} ({z['type']})\n📈 {t['reason']}\n⚡ {r['reason']}\n🕯️ {pa['reason']}\n🌪️ {atr_data['reason']}\n\nГолоса: {votes} -> {decision}\n\n💰 ТВХ: {entry:.2f}\n🛑 SL: {sl:.2f}\n🎯 TP1: {tp1:.2f}\n🎯 TP2: {tp2:.2f}\n🎯 TP3: {tp3:.2f}\n"
-        await update.message.reply_text(text)
+        update.message.reply_text(text)
     except Exception as e:
-        await update.message.reply_text(f"Ошибка: {e}")
+        update.message.reply_text(f"Ошибка: {e}")
 
-app = ApplicationBuilder().token(os.environ["BOT_TOKEN"]).build()
-app.add_handler(CommandHandler("start", start))
-app.add_handler(CommandHandler("signal", signal))
+updater = Updater(os.environ["BOT_TOKEN"])
+updater.dispatcher.add_handler(CommandHandler("start", start))
+updater.dispatcher.add_handler(CommandHandler("signal", signal))
 print("Night Bear 6 Agents started")
-app.run_polling()
+updater.start_polling()
+updater.idle()
